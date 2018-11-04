@@ -1,11 +1,16 @@
 Package: ITRlearn
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Title: Individualized Treatment Rule Learning
+Version: 0.1.2
+Author@R: person("Xinlei", "Mi", email = "xlmi@ufl.edu", role = c("aut", "cre"))
+Author: Xinlei Mi [aut, cre]
+Maintainer: Xinlei Mi <xlmi@ufl.edu>
+Description: Individualized Treatment Rule Learning
+    A toolkit for individualized treatment rule learning, including
+    frameworks like outcome weighted learning, virtue twins and etc, 
+    with a variety of machines including DNNs, random forsts, LASSO 
+    and etc. 
+License: GPL (>= 2)
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 6.0.1

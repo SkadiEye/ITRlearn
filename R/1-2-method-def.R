@@ -148,7 +148,7 @@ setMethod(
   function(object) {
 
     show.vec(object, "Y", 6)
-    show.vec(object, "Y.true", 6)
+    # show.vec(object, "Y.true", 6)
     show.df(object, "X", 6, 6)
     cat("@X:",
         nrow(object@X), "subjects by", ncol(object@X), "variables. \n")

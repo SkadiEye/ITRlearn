@@ -336,6 +336,13 @@ setMethod("predict", "ITRObj",
               pred <- factor(label[2 - (prob[, 1] > cutoff)], levels = label)
               return(methods::new("PredDiscreteObj", prob = prob, pred = pred))
 
+            } else if(object@model.type == "VTS") {
+
+              prob <- predict(object@model, newData@X, type = "prob")[, 2:1]
+              label <- object@label
+              colnames(prob) <- label
+              pred <- factor(label[2 - (prob[, 1] > cutoff)], levels = label)
+              return(methods::new("PredDiscreteObj", prob = prob, pred = pred))
             }
           }
 )

@@ -13,6 +13,11 @@ itr.names <- function(ITR) {
   if(ITR == "itrOWL") return("Outcome Weighted Learning")
   if(ITR == "itrVT") return("Virtual Twins")
   if(ITR == "itrSimple") return("A simple Method")
+  if(ITR == "EndLot") return("ENsemble Deep Learning Optimal Treatment")
+  if(ITR == "LASSO") return("LASSO")
+  if(ITR == "OWL_LASSO") return("Outcome Weighted Learning LASSO")
+  if(ITR == "VT_Single") return("Virtual Twins (Single)")
+  if(ITR == "VT_Ensemble") return("Virtual Twins (Ensemble)")
 }
 
 ctrl.names <- function(ctrl) {
@@ -123,6 +128,36 @@ setGeneric("itrSimple",
 )
 
 #' @rdname itr
+#' @export
+setGeneric("EndLot",
+           function(object, valid = NULL, ...) standardGeneric("EndLot")
+)
+
+#' @rdname itr
+#' @export
+setGeneric("LASSO",
+           function(object, valid = NULL, ...) standardGeneric("LASSO")
+)
+
+#' @rdname itr
+#' @export
+setGeneric("OWL_LASSO",
+           function(object, valid = NULL, ...) standardGeneric("OWL_LASSO")
+)
+
+#' @rdname itr
+#' @export
+setGeneric("VT_Single",
+           function(object, valid = NULL, ...) standardGeneric("VT_Single")
+)
+
+#' @rdname itr
+#' @export
+setGeneric("VT_Ensemble",
+           function(object, valid = NULL, ...) standardGeneric("VT_Ensemble")
+)
+
+#' @rdname itr
 #' @section Methods (by generic):
 #' \code{itrDOWL}: Doubly Weighted Outcome Learning Framework. This procedure first calls a
 #'  regression model to estimate E(Y|X), the expected treatment effect averaged on all
@@ -182,6 +217,61 @@ setMethod(
     }
 
     methods::new("ITRObj", model = do.call(wclsCtrl$machine, wclsArg), model.type = "OWL", label = levels(object@trtLabl))
+  }
+)
+
+setMethod(
+  "EndLot",
+  "TrtDataObj",
+  function(object, valid, norm.x = TRUE, regCtrl = NULL, wclsCtrl = NULL,
+           n.batch = NULL, n.epoch = NULL, n.ensemble = NULL, n.hidden = NULL,
+           l1.reg = 10**-4, l2.reg = 0, plot = FALSE, best.opti = TRUE,
+           learning.rate.adaptive = "adagrad", activate = "elu", ...) {
+
+    p.dim <- dim(object@X)[2]
+    if(is.null(n.ensemble))
+      n.ensemble <- ifelse(p.dim > 200, 10, ifelse(p.dim <= 100, 200, 25))
+    if(is.null(n.batch))
+      n.batch <- ifelse(p.dim > 100, 10, 100)
+    if(is.null(n.hidden))
+      n.hidden <- c(30, 30, 30)
+    if(is.null(n.epoch)) {
+
+      n.epoch <- ifelse(p.dim <= 100, 1000,
+                        ifelse(p.dim <= 1000, 250,
+                               ifelse(p.dim <= 2000, 500,
+                                      ifelse(p.dim <= 5000, 1000))))
+    }
+    if(is.null(regCtrl)) {
+
+      regCtrl.dnn <- list(machine = "regDNN", norm.x = norm.x, n.batch = n.batch, n.epoch = n.epoch, activate = activate, accel = "rcpp",
+                          l1.reg = l1.reg, l2.reg = l2.reg, plot = plot ,
+                          learning.rate.adaptive = learning.rate.adaptive, early.stop.det = 100)
+      regCtrl <- list(machine = "ensemble", n.ensemble = n.ensemble, best.opti = best.opti,
+                      esCtrl = append(regCtrl.dnn, list(n.hidden = n.hidden)))
+    }
+    if(is.null(wclsCtrl)) {
+
+      wclsCtrl.dnn <- list(machine = "wclsDNN", norm.x = norm.x, n.batch = n.batch, n.epoch = n.epoch, activate = activate, accel = "rcpp",
+                           l1.reg = l1.reg, l2.reg = l2.reg, plot = plot,
+                           learning.rate.adaptive = learning.rate.adaptive, early.stop.det = 100)
+      wclsCtrl <- list(machine = "ensemble", n.ensemble = n.ensemble, best.opti = best.opti,
+                       esCtrl = append(wclsCtrl.dnn, list(n.hidden = n.hidden)))
+    }
+
+    return(itrDOWL(object = object, valid = valid, regCtrl = regCtrl, wclsCtrl = wclsCtrl))
+  }
+)
+
+setMethod(
+  "OWL_LASSO",
+  "TrtDataObj",
+  function(object, valid, regCtrl = NULL, wclsCtrl = NULL,
+           k.fold = 5, lambda = 0.8**(0:40), ...) {
+
+    regCtrl  <- list(machine = "cvGrid", k.fold = k.fold, gsCtrl = list(machine = "regLASSO"))
+    wclsCtrl <- list(machine = "cvGrid", k.fold = k.fold, gsCtrl = list(machine = "wclsLASSO", lambda = lambda))
+    return(itrDOWL(object = object, valid = valid, regCtrl = regCtrl, wclsCtrl = wclsCtrl))
   }
 )
 
@@ -279,6 +369,51 @@ setMethod(
   }
 )
 
+setMethod(
+  "VT_Ensemble",
+  "TrtDataObj",
+  function(object, valid, ntree = 2000, ...) {
+
+    regCtrl <- list(machine = "regRF", ntree = ntree)
+    return(itrVT(object = object, valid = valid, regCtrl = regCtrl))
+  }
+)
+
+setMethod(
+  "VT_Single",
+  "TrtDataObj",
+  function(object, valid, ntree = 2000, k.fold = 5, cp_list = seq(0.01, 0.2, 0.01), ...) {
+
+    regCtrl <- list(machine = "regRF", ntree = ntree)
+    itr_ <- itrVT(object = object, valid = valid, regCtrl = regCtrl)
+    y1 <- predict(itr_@model$model.case@model, object@X)
+    y0 <- predict(itr_@model$model.ctrl@model, object@X)
+    y <- (y1 > y0)*1
+    x <- object@X
+
+    n_sample <- dim(object@X)[1]
+    resample <- sample(n_sample)
+    result <- matrix(NA, n_sample, length(cp_list))
+    accu <- numeric(length(cp_list))
+
+    for (j in 1:length(cp_list)) {
+      for(i in 1:k.fold) {
+
+        ind <- resample[floor(n_sample*(i-1)/k.fold+1):floor(n_sample*i/k.fold)]
+        tree_mod <- rpart::rpart(Y ~ ., data = data.frame(x[-ind, ], "Y" = y[-ind]), method = "class", cp = cp_list[j])
+        result[ind, j] <- (predict(tree_mod, x[ind, ])[, 2] > 0.5)*1
+      }
+
+      accu[j] <- mean(y == result[, j])
+    }
+
+    cp_best <- cp_list[which.max(accu)]
+    mod <- rpart::rpart(Y ~ ., data = data.frame(x, "Y" = y), method = "class", cp = cp_list[j])
+
+    methods::new("ITRObj", model = mod, model.type = "VTS", label = levels(object@trtLabl))
+  }
+)
+
 #' @rdname itr
 #' @section Methods (by generic):
 #' \code{itrSimple}: Simple Regression Framework. This procedure fits one regression model with
@@ -304,5 +439,15 @@ setMethod(
       regArg <- appendArg(regArg, "valid", regObj.valid, 1)
     }
     methods::new("ITRObj", model = do.call(regCtrl$machine, regArg), model.type = "Simple", label = levels(object@trtLabl))
+  }
+)
+
+setMethod(
+  "LASSO",
+  "TrtDataObj",
+  function(object, valid, k.fold = 5, ...) {
+
+    regCtrl  <- list(machine = "cvGrid", k.fold = k.fold, gsCtrl = list(machine = "regLASSO"))
+    return(itrSimple(object = object, valid = valid, regCtrl = regCtrl))
   }
 )
