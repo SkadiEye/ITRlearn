@@ -69,7 +69,8 @@ importData <- function(X,
   if(!is.null(trtLabl) && levels(trtLabl) != trtLevl)
     trtLabl <- factor(trtLabl, levels = trtLevl)
 
-  levels(trtTrue) <- levels(trtLabl)
+  if(!is.null(trtTrue))
+    levels(trtTrue) <- levels(trtLabl)
 
   methods::new("TrtDataObj", X = X, trtResp = trtResp, trtLabl = trtLabl, trtLevl = trtLevl,
                trtTrue = trtTrue, sample.weight = sample.weight, sample.inclsn = sample.inclsn)

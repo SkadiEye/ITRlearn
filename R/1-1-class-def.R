@@ -28,7 +28,7 @@ setClass(
     trtLabl = "factor",
     X = "data.frame",
     trtLevl = "character",
-    trtTrue = "factor",
+    trtTrue = "ANY",
     sample.weight = "numeric",
     sample.inclsn = "logical"
   )

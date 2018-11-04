@@ -62,7 +62,10 @@ setMethod("splitData", "TrtDataObj",
             trainObj@X <- object@X[split, ]
             trainObj@trtResp <- object@trtResp[split]
             trainObj@trtLabl <- object@trtLabl[split]
-            trainObj@trtTrue <- object@trtTrue[split]
+            if(!is.null(trainObj@trtTrue))
+              trainObj@trtTrue <- object@trtTrue[split]
+            else
+              trainObj@trtTrue <- NULL
             trainObj@sample.weight <- object@sample.weight[split]
             trainObj@sample.inclsn <- object@sample.inclsn[split]
 
@@ -70,7 +73,10 @@ setMethod("splitData", "TrtDataObj",
             validObj@X <- object@X[-split, ]
             validObj@trtResp <- object@trtResp[-split]
             validObj@trtLabl <- object@trtLabl[-split]
-            validObj@trtTrue <- object@trtTrue[-split]
+            if(!is.null(trainObj@trtTrue))
+              validObj@trtTrue <- object@trtTrue[-split]
+            else
+              validObj@trtTrue <- NULL
             validObj@sample.weight <- object@sample.weight[-split]
             validObj@sample.inclsn <- object@sample.inclsn[-split]
 
