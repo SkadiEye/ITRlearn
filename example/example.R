@@ -1,3 +1,9 @@
+#### Install "dnnet" and "ITRlearn" ####
+library(devtools)
+install_github("SkadiEye/dnnet")
+install_github("SkadiEye/ITRlearn")
+
+#### Load packages required -- install from CRAN if necessary
 library(ITRlearn)
 library(dnnet)
 library(MASS)
